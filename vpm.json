@@ -1,0 +1,28 @@
+{
+  "name": "@voltlabs/chill-plus",
+  "version": "2.0.0",
+  "kind": "workflow",
+  "publisher": "voltlabs",
+  "description": "Chill+ ice/hydrate structure classifier: identifies hexagonal ice, cubic ice, interfacial ice, hydrate and interfacial hydrate via spherical harmonic bond-order correlation (Nguyen & Molinero 2015).",
+  "license": "MIT",
+  "homepage": "https://github.com/voltlabs-research/chill-plus",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/voltlabs-research/chill-plus"
+  },
+  "entrypoints": {
+    "binary": "chill-plus-plugin.zip",
+    "workflow": "plugin.json"
+  },
+  "platforms": [
+    "linux-x86_64",
+    "darwin-arm64",
+    "windows-x86_64"
+  ],
+  "coretoolkit": "2.0.0",
+  "files": [
+    "plugin.json",
+    "bin",
+    "lib"
+  ]
+}
