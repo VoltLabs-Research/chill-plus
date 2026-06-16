@@ -12,7 +12,7 @@
             "icon": "HiCubeTransparent",
             "author": "VoltLabs Research",
             "license": "MIT",
-            "version": "1.0.0",
+            "version": "1.0.1",
             "homepage": "https://github.com/voltlabs-research/chill-plus",
             "description": "Identifies hexagonal ice, cubic ice, interfacial ice, hydrate and interfacial hydrate via Chill+ bond-order correlation (Nguyen & Molinero 2015)."
           }
