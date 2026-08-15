@@ -66,7 +66,6 @@ json ChillPlusService::compute(const LammpsParser::Frame& frame, const std::stri
 
     const size_t N = static_cast<size_t>(frame.natoms);
 
-    // Compute q_lm for l=3, m=-3..3 (stored as index 0..6 = m+3) for every atom.
     std::vector<std::array<std::complex<float>, 7>> qValues(N);
     for (size_t i = 0; i < N; ++i) {
         qValues[i].fill(std::complex<float>(0, 0));
@@ -81,12 +80,10 @@ json ChillPlusService::compute(const LammpsParser::Frame& frame, const std::stri
         }
     }
 
-    // Classify each atom.
     std::vector<ChillPlusStructureType> types(N);
     for (size_t i = 0; i < N; ++i)
         types[i] = determineStructure(neighFinder, i, qValues);
 
-    // Count per structure type.
     std::array<int, 6> counts{};
     for (auto t : types)
         counts[static_cast<int>(t)]++;
@@ -112,11 +109,11 @@ json ChillPlusService::compute(const LammpsParser::Frame& frame, const std::stri
             .perAtomColumnWriter = [&types](ColumnarAtomWriter& w, size_t i) {
                 w.field("structure_type", static_cast<int64_t>(types[i]));
             },
-            .includeStructureColumns = true, // structural-identification plugin
+            .includeStructureColumns = true,
         });
     }
 
     return result;
 }
 
-} // namespace Volt
+}

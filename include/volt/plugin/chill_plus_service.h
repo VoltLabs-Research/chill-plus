@@ -9,8 +9,6 @@ namespace Volt {
 
 using json = nlohmann::json;
 
-// Structure types recognized by the Chill+ algorithm.
-// Values match OVITO's ChillPlusModifier::StructureType ordering.
 enum class ChillPlusStructureType : int {
     OTHER               = 0,
     HEXAGONAL_ICE       = 1,
@@ -43,4 +41,4 @@ private:
     double _cutoff;
 };
 
-} // namespace Volt
+}
