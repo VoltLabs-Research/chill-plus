@@ -106,8 +106,8 @@ json ChillPlusService::compute(const LammpsParser::Frame& frame, const std::stri
             .bucketResolver     = [&types](size_t i) -> std::string {
                 return chillPlusStructureName(types[i]);
             },
-            .perAtomColumnWriter = [&types](ColumnarAtomWriter& w, size_t i) {
-                w.field("structure_type", static_cast<int64_t>(types[i]));
+            .resolveStructureId = [&types](size_t i) {
+                return static_cast<int>(types[i]);
             },
             .includeStructureColumns = true,
         });
