@@ -104,6 +104,12 @@ json ChillPlusService::compute(const LammpsParser::Frame& frame, const std::stri
     for (auto t : types)
         counts[static_cast<int>(t)]++;
 
+    spdlog::info("Structure types: Hexagonal ice {} ({:.1f}%), Cubic ice {} ({:.1f}%), Interfacial ice {} ({:.1f}%), "
+                 "Hydrate {} ({:.1f}%), Interfacial hydrate {} ({:.1f}%), Other {} ({:.1f}%)",
+        counts[1], percentOf(counts[1], N), counts[2], percentOf(counts[2], N),
+        counts[3], percentOf(counts[3], N), counts[4], percentOf(counts[4], N),
+        counts[5], percentOf(counts[5], N), counts[0], percentOf(counts[0], N));
+
     json result;
     result["main_listing"] = {
         {"total_atoms", frame.natoms},
