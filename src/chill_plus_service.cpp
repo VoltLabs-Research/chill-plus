@@ -3,6 +3,7 @@
 #include <volt/core/frame_adapter.h>
 #include <volt/core/analysis_result.h>
 #include <volt/plugin/output_serializer.h>
+#include <volt/core/progress.h>
 #include <spdlog/spdlog.h>
 
 #include <complex>
@@ -60,16 +61,23 @@ json ChillPlusService::compute(const LammpsParser::Frame& frame, const std::stri
     if (!positions)
         return AnalysisResult::failure("Failed to create position property");
 
+    spdlog::info("Building neighbor lists (cutoff {:.5g}) for {} atoms...", _cutoff, frame.natoms);
+    Stopwatch timer;
     CutoffNeighborFinder neighFinder;
     if (!neighFinder.prepare(_cutoff, positions.get(), frame.simulationCell))
         return AnalysisResult::failure("CutoffNeighborFinder::prepare failed");
+    spdlog::info("Neighbor lists ready in {}", timer.elapsed());
 
     const size_t N = static_cast<size_t>(frame.natoms);
 
     std::vector<std::array<std::complex<float>, 7>> qValues(N);
+    spdlog::info("Computing q3 bond orders for {} atoms...", N);
+    ProgressReporter q3Progress("Computing q3 bond orders", N);
+    size_t neighborCount = 0;
     for (size_t i = 0; i < N; ++i) {
         qValues[i].fill(std::complex<float>(0, 0));
         for (CutoffNeighborFinder::Query q(neighFinder, i); !q.atEnd(); q.next()) {
+            ++neighborCount;
             const auto& delta = q.delta();
             const float azimuthal = std::atan2(static_cast<float>(delta.y()), static_cast<float>(delta.x()));
             const float xyDist   = std::sqrt(static_cast<float>(delta.x() * delta.x() + delta.y() * delta.y()));
@@ -78,11 +86,19 @@ json ChillPlusService::compute(const LammpsParser::Frame& frame, const std::stri
                 qValues[i][m + 3] += boost::math::spherical_harmonic(3, m, polar, azimuthal);
             }
         }
+        q3Progress.update(i + 1);
     }
+    spdlog::info("Computed q3 bond orders for {} atoms in {} (mean {:.2f} neighbors per atom)",
+        N, q3Progress.elapsed(), static_cast<double>(neighborCount) / static_cast<double>(N));
 
     std::vector<ChillPlusStructureType> types(N);
-    for (size_t i = 0; i < N; ++i)
+    spdlog::info("Classifying {} atoms...", N);
+    ProgressReporter progress("Classifying atoms", N);
+    for (size_t i = 0; i < N; ++i) {
         types[i] = determineStructure(neighFinder, i, qValues);
+        progress.update(i + 1);
+    }
+    spdlog::info("Classified {} atoms in {}", N, progress.elapsed());
 
     std::array<int, 6> counts{};
     for (auto t : types)
