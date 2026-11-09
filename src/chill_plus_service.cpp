@@ -61,12 +61,15 @@ json ChillPlusService::compute(const LammpsParser::Frame& frame, const std::stri
     if (!positions)
         return AnalysisResult::failure("Failed to create position property");
 
+    // Neighbor lists, q3 bond orders, classification and outputs; the spherical harmonics dominate.
+    ProgressSteps steps({1.0, 10.0, 1.0, 2.0});
     spdlog::info("Building neighbor lists (cutoff {:.5g}) for {} atoms...", _cutoff, frame.natoms);
     Stopwatch timer;
     CutoffNeighborFinder neighFinder;
     if (!neighFinder.prepare(_cutoff, positions.get(), frame.simulationCell))
         return AnalysisResult::failure("CutoffNeighborFinder::prepare failed");
     spdlog::info("Neighbor lists ready in {}", timer.elapsed());
+    steps.next();
 
     const size_t N = static_cast<size_t>(frame.natoms);
 
@@ -90,6 +93,7 @@ json ChillPlusService::compute(const LammpsParser::Frame& frame, const std::stri
     }
     spdlog::info("Computed q3 bond orders for {} atoms in {} (mean {:.2f} neighbors per atom)",
         N, q3Progress.elapsed(), static_cast<double>(neighborCount) / static_cast<double>(N));
+    steps.next();
 
     std::vector<ChillPlusStructureType> types(N);
     spdlog::info("Classifying {} atoms...", N);
@@ -99,6 +103,7 @@ json ChillPlusService::compute(const LammpsParser::Frame& frame, const std::stri
         progress.update(i + 1);
     }
     spdlog::info("Classified {} atoms in {}", N, progress.elapsed());
+    steps.next();
 
     std::array<int, 6> counts{};
     for (auto t : types)
