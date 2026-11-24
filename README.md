@@ -5,6 +5,7 @@ Identifies hexagonal ice, cubic ice, interfacial ice, hydrate and interfacial hy
 ## Install
 
 ```bash
+npm install -g @voltstack/vpm
 vpm install @voltlabs/chill-plus
 ```
 
