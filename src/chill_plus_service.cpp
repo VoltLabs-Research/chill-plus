@@ -1,12 +1,14 @@
 #include <volt/plugin/chill_plus_service.h>
+#include <volt/plugin/chill_plus_log.h>
 #include <volt/analysis/cutoff_neighbor_finder.h>
 #include <volt/core/frame_adapter.h>
 #include <volt/core/analysis_result.h>
 #include <volt/plugin/output_serializer.h>
 #include <volt/core/progress.h>
-#include <spdlog/spdlog.h>
+#include <volt/core/type_counts.h>
 
 #include <complex>
+#include <map>
 #include <boost/math/special_functions/spherical_harmonic.hpp>
 
 namespace Volt {
@@ -15,7 +17,7 @@ ChillPlusService::ChillPlusService() : _cutoff(3.5) {}
 
 void ChillPlusService::setCutoff(double cutoff) { _cutoff = cutoff; }
 
-static ChillPlusStructureType determineStructure(
+ChillPlusStructureType ChillPlusService::determineStructure(
     const CutoffNeighborFinder& neighFinder,
     size_t particleIndex,
     const std::vector<std::array<std::complex<float>, 7>>& qValues)
@@ -61,26 +63,26 @@ json ChillPlusService::compute(const LammpsParser::Frame& frame, const std::stri
     if (!positions)
         return AnalysisResult::failure("Failed to create position property");
 
-    // Neighbor lists, q3 bond orders, classification and outputs; the spherical harmonics dominate.
-    ProgressSteps steps({1.0, 10.0, 1.0, 2.0});
-    spdlog::info("Building neighbor lists (cutoff {:.5g}) for {} atoms...", _cutoff, frame.natoms);
-    Stopwatch timer;
+    ChillPlusLog log;
+    ProgressSteps steps({
+        {"Building neighbor lists", 1.0},
+        {"Computing q3 bond orders", 10.0},
+        {"Classifying atoms", 1.0},
+        {"Writing outputs", 2.0},
+    });
     CutoffNeighborFinder neighFinder;
     if (!neighFinder.prepare(_cutoff, positions.get(), frame.simulationCell))
         return AnalysisResult::failure("CutoffNeighborFinder::prepare failed");
-    spdlog::info("Neighbor lists ready in {}", timer.elapsed());
+    log.dump(neighFinder);
     steps.next();
 
     const size_t N = static_cast<size_t>(frame.natoms);
 
     std::vector<std::array<std::complex<float>, 7>> qValues(N);
-    spdlog::info("Computing q3 bond orders for {} atoms...", N);
     ProgressReporter q3Progress("Computing q3 bond orders", N);
-    size_t neighborCount = 0;
     for (size_t i = 0; i < N; ++i) {
         qValues[i].fill(std::complex<float>(0, 0));
         for (CutoffNeighborFinder::Query q(neighFinder, i); !q.atEnd(); q.next()) {
-            ++neighborCount;
             const auto& delta = q.delta();
             const float azimuthal = std::atan2(static_cast<float>(delta.y()), static_cast<float>(delta.x()));
             const float xyDist   = std::sqrt(static_cast<float>(delta.x() * delta.x() + delta.y() * delta.y()));
@@ -91,29 +93,20 @@ json ChillPlusService::compute(const LammpsParser::Frame& frame, const std::stri
         }
         q3Progress.update(i + 1);
     }
-    spdlog::info("Computed q3 bond orders for {} atoms in {} (mean {:.2f} neighbors per atom)",
-        N, q3Progress.elapsed(), static_cast<double>(neighborCount) / static_cast<double>(N));
+    log.dump(qValues);
     steps.next();
 
     std::vector<ChillPlusStructureType> types(N);
-    spdlog::info("Classifying {} atoms...", N);
     ProgressReporter progress("Classifying atoms", N);
     for (size_t i = 0; i < N; ++i) {
         types[i] = determineStructure(neighFinder, i, qValues);
         progress.update(i + 1);
     }
-    spdlog::info("Classified {} atoms in {}", N, progress.elapsed());
+    log.dump(types);
     steps.next();
 
-    std::array<int, 6> counts{};
-    for (auto t : types)
-        counts[static_cast<int>(t)]++;
-
-    spdlog::info("Structure types: Hexagonal ice {} ({:.1f}%), Cubic ice {} ({:.1f}%), Interfacial ice {} ({:.1f}%), "
-                 "Hydrate {} ({:.1f}%), Interfacial hydrate {} ({:.1f}%), Other {} ({:.1f}%)",
-        counts[1], percentOf(counts[1], N), counts[2], percentOf(counts[2], N),
-        counts[3], percentOf(counts[3], N), counts[4], percentOf(counts[4], N),
-        counts[5], percentOf(counts[5], N), counts[0], percentOf(counts[0], N));
+    std::map<int, int> counts = countTypes(types);
+    log.dump(counts);
 
     json result;
     result["main_listing"] = {

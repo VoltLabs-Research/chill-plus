@@ -3,7 +3,10 @@
 #include <volt/core/volt.h>
 #include <volt/core/lammps_parser.h>
 #include <nlohmann/json.hpp>
+#include <array>
+#include <complex>
 #include <string>
+#include <vector>
 
 namespace Volt {
 
@@ -29,6 +32,8 @@ inline const char* chillPlusStructureName(ChillPlusStructureType t) {
     }
 }
 
+class CutoffNeighborFinder;
+
 class ChillPlusService {
 public:
     ChillPlusService();
@@ -38,6 +43,12 @@ public:
     json compute(const LammpsParser::Frame& frame, const std::string& outputBase);
 
 private:
+    static ChillPlusStructureType determineStructure(
+        const CutoffNeighborFinder& neighFinder,
+        size_t particleIndex,
+        const std::vector<std::array<std::complex<float>, 7>>& qValues
+    );
+
     double _cutoff;
 };
 
